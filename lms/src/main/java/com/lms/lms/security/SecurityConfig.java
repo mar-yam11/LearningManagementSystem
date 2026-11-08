@@ -40,28 +40,59 @@ public class SecurityConfig {
         return source;
     }
 
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // التحديث الجديد لتعطيل الـ CSRF
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
 
-                // التحديث الجديد لتعريف مسارات الـ API
                 .authorizeHttpRequests(auth -> auth
+                        // Swagger - Public Access
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+
+                        // Authentication
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/course/createCourse", "/lesson/*/generate-otp", "/quiz/add").hasAuthority(Role.Instructor.name())
-                        .requestMatchers("/attendance/mark", "/quiz/answer").hasAuthority(Role.Student.name())
-                        .requestMatchers("/report/**").hasAnyAuthority(Role.Instructor.name(), Role.Admin.name())
+
+                        // Instructor
+                        .requestMatchers(
+                                "/course/createCourse",
+                                "/lesson/*/generate-otp",
+                                "/quiz/add"
+                        ).hasAuthority(Role.Instructor.name())
+
+                        // Student
+                        .requestMatchers(
+                                "/attendance/mark",
+                                "/quiz/answer"
+                        ).hasAuthority(Role.Student.name())
+
+                        // Reports
+                        .requestMatchers("/report/**")
+                        .hasAnyAuthority(
+                                Role.Instructor.name(),
+                                Role.Admin.name()
+                        )
+
+                        // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )
 
-                // التحديث الجديد لإدارة الـ Session
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(sess ->
+                        sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
 
                 .authenticationProvider(authenticationProvider)
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(
+                        jwtAuthFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
         return http.build();
     }
+
 }
